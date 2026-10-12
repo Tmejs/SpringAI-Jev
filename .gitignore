@@ -1,0 +1,5 @@
+target/
+.env
+.superpowers/
+.idea/
+.DS_Store

@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/springai_jev}
+    username: ${DB_USER:springai_jev}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  ai:
+    model:
+      chat: ollama
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: ${OLLAMA_MODEL:gemma3:4b}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+  jev:
+    base-url: ${TYPESAFE_BASE_URL:https://api.typesafe.ai}
+    api-key: ${TYPESAFE_API_KEY:}
