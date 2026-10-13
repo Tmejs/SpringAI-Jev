@@ -74,6 +74,22 @@ class TypeSafeJevClientTest {
     }
 
     @Test
+    void categoryProbabilitiesMustSumToOne() {
+        server.expect(requestTo("https://api.typesafe.ai/v1/systemone"))
+            .andRespond(withSuccess(validResponse().replace("\"bug\":0.9", "\"bug\":0.0"),
+                MediaType.APPLICATION_JSON));
+        assertThrows(JevProtocolException.class, () -> client.assess("title", "description"));
+    }
+
+    @Test
+    void urgencyProbabilitiesMustSumToOne() {
+        server.expect(requestTo("https://api.typesafe.ai/v1/systemone"))
+            .andRespond(withSuccess(validResponse().replace("\"2\":0.5", "\"2\":0.0"),
+                MediaType.APPLICATION_JSON));
+        assertThrows(JevProtocolException.class, () -> client.assess("title", "description"));
+    }
+
+    @Test
     void invalidJsonIsProtocolError() {
         server.expect(requestTo("https://api.typesafe.ai/v1/systemone"))
             .andRespond(withSuccess("{invalid", MediaType.APPLICATION_JSON));

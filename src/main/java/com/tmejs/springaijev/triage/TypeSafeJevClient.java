@@ -160,6 +160,10 @@ public class TypeSafeJevClient implements JevClient {
         if (values.size() != keys.size()) {
             throw new JevProtocolException("Jev returned unexpected probability keys");
         }
+        double sum = result.values().stream().mapToDouble(Double::doubleValue).sum();
+        if (Math.abs(sum - 1.0) > 1e-6) {
+            throw new JevProtocolException("Jev returned probabilities that do not sum to one");
+        }
         return Map.copyOf(result);
     }
 }
