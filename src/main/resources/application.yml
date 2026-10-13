@@ -24,3 +24,6 @@ app:
   jev:
     base-url: ${TYPESAFE_BASE_URL:https://api.typesafe.ai}
     api-key: ${TYPESAFE_API_KEY:}
+  triage:
+    category-confidence-threshold: 0.70
+    sufficient-information-threshold: 0.60

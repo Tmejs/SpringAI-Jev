@@ -1,6 +1,8 @@
 package com.tmejs.springaijev.common;
 
 import com.tmejs.springaijev.issue.IssueNotFoundException;
+import com.tmejs.springaijev.triage.JevProtocolException;
+import com.tmejs.springaijev.triage.JevUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -33,5 +35,17 @@ public class ApiErrorHandler {
         return ResponseEntity.status(error.getStatusCode())
             .body(new ApiError(code == 401 ? "UNAUTHORIZED" : "REQUEST_FAILED",
                 code == 401 ? "Invalid credentials" : "Request failed", false));
+    }
+
+    @ExceptionHandler(JevProtocolException.class)
+    ResponseEntity<ApiError> jevProtocol() {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+            .body(new ApiError("JEV_INVALID_RESPONSE", "Jev returned an invalid response", false));
+    }
+
+    @ExceptionHandler(JevUnavailableException.class)
+    ResponseEntity<ApiError> jevUnavailable() {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+            .body(new ApiError("JEV_UNAVAILABLE", "Jev is unavailable", true));
     }
 }
