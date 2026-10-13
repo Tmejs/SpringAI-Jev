@@ -1,0 +1,5 @@
+app:
+  jwt:
+    secret: test-only-secret-which-is-longer-than-thirty-two-bytes
+  jev:
+    api-key: test-only-jev-key
