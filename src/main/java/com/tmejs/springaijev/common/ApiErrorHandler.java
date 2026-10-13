@@ -1,5 +1,7 @@
 package com.tmejs.springaijev.common;
 
+import com.tmejs.springaijev.draft.ReplyInvalidException;
+import com.tmejs.springaijev.draft.ReplyUnavailableException;
 import com.tmejs.springaijev.issue.IssueNotFoundException;
 import com.tmejs.springaijev.triage.JevProtocolException;
 import com.tmejs.springaijev.triage.JevUnavailableException;
@@ -47,5 +49,17 @@ public class ApiErrorHandler {
     ResponseEntity<ApiError> jevUnavailable() {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
             .body(new ApiError("JEV_UNAVAILABLE", "Jev is unavailable", true));
+    }
+
+    @ExceptionHandler(ReplyInvalidException.class)
+    ResponseEntity<ApiError> replyInvalid() {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+            .body(new ApiError("OLLAMA_INVALID_RESPONSE", "Ollama returned an empty draft", false));
+    }
+
+    @ExceptionHandler(ReplyUnavailableException.class)
+    ResponseEntity<ApiError> replyUnavailable() {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+            .body(new ApiError("OLLAMA_UNAVAILABLE", "Ollama is unavailable", true));
     }
 }
