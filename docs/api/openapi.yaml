@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: SpringAI-Jev Issue Triage API
+  version: 0.1.0
+  description: >-
+    Submit software issues, classify them with Jev, and prepare editable
+    maintainer replies with Spring AI and a local Ollama model.
+servers:
+  - url: http://localhost:8080/api/v1
+tags:
+  - name: Authentication
+  - name: Issues
+  - name: Triage
+  - name: Drafts
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Exchange demo credentials for a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed JWT, valid for 30 minutes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /issues:
+    post:
+      tags: [Issues]
+      summary: Submit an issue
+      description: The authenticated account becomes the issue owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIssueRequest'
+      responses:
+        '201':
+          description: Issue created with UNTRIAGED status
+          headers:
+            Location:
+              description: Path to the created issue
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Issues]
+      summary: List visible issues
+      description: USER sees only owned issues; MAINTAINER sees the full queue.
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/IssueStatus'
+          description: Optional status filter
+      responses:
+        '200':
+          description: Issues, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /issues/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IssueId'
+    get:
+      tags: [Issues]
+      summary: Read an issue
+      description: A USER receives 404 for another owner's issue.
+      responses:
+        '200':
+          description: Visible issue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /issues/{id}/triage:
+    parameters:
+      - $ref: '#/components/parameters/IssueId'
+    post:
+      tags: [Triage]
+      summary: Run Jev triage
+      description: >-
+        MAINTAINER only. A successful call appends a result and updates issue
+        status. Failed provider calls preserve earlier results and status.
+      responses:
+        '200':
+          description: Stored triage result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/ProviderFailure'
+    get:
+      tags: [Triage]
+      summary: Read triage history
+      description: Visible to the issue owner or a MAINTAINER.
+      responses:
+        '200':
+          description: Successful results, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriageResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /issues/{id}/drafts:
+    parameters:
+      - $ref: '#/components/parameters/IssueId'
+    post:
+      tags: [Drafts]
+      summary: Generate an editable reply draft
+      description: MAINTAINER only. Requires an existing successful triage result.
+      responses:
+        '201':
+          description: Stored draft
+          headers:
+            Location:
+              description: Path to the created draft
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/TriageRequired'
+        '502':
+          $ref: '#/components/responses/ProviderFailure'
+    get:
+      tags: [Drafts]
+      summary: List saved drafts
+      description: MAINTAINER only.
+      responses:
+        '200':
+          description: Drafts, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Draft'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /issues/{id}/drafts/{draftId}:
+    parameters:
+      - $ref: '#/components/parameters/IssueId'
+      - $ref: '#/components/parameters/DraftId'
+    patch:
+      tags: [Drafts]
+      summary: Edit a saved draft
+      description: MAINTAINER only. A draft from another issue returns 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditDraftRequest'
+      responses:
+        '200':
+          description: Updated draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: HS256 JWT returned by POST /auth/login.
+  parameters:
+    IssueId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DraftId:
+      in: path
+      name: draftId
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid JSON, path, query, or request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication required or credentials invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Role does not permit the action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Resource not found or not visible to this account
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    TriageRequired:
+      description: No successful triage exists for this issue
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ProviderFailure:
+      description: Jev or Ollama failed; retryable indicates whether retry is advised
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+          format: password
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: Signed JWT
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Lifetime in seconds
+          example: 1800
+    CreateIssueRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 10000
+    IssueStatus:
+      type: string
+      enum: [UNTRIAGED, TRIAGED, NEEDS_REVIEW]
+    Issue:
+      type: object
+      required: [id, ownerId, title, description, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Category:
+      type: string
+      enum: [BUG, FEATURE, QUESTION]
+    Probability:
+      type: number
+      minimum: 0
+      maximum: 1
+    CategoryProbabilities:
+      type: object
+      description: Probability distribution across categories; values sum to 1.
+      additionalProperties: false
+      required: [bug, feature, question]
+      properties:
+        bug:
+          $ref: '#/components/schemas/Probability'
+        feature:
+          $ref: '#/components/schemas/Probability'
+        question:
+          $ref: '#/components/schemas/Probability'
+    UrgencyProbabilities:
+      type: object
+      description: Probability distribution across urgency levels; values sum to 1.
+      additionalProperties: false
+      required: ['0', '1', '2']
+      properties:
+        '0':
+          $ref: '#/components/schemas/Probability'
+        '1':
+          $ref: '#/components/schemas/Probability'
+        '2':
+          $ref: '#/components/schemas/Probability'
+    TriageResult:
+      type: object
+      required: [id, issueId, model, category, categoryConfidence,
+        categoryProbabilities, urgencyScore, urgencyConfidence,
+        urgencyProbabilities, sufficientInformationProbability, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        issueId:
+          type: string
+          format: uuid
+        model:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        categoryConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        categoryProbabilities:
+          $ref: '#/components/schemas/CategoryProbabilities'
+        urgencyScore:
+          type: number
+          minimum: 0
+          maximum: 2
+        urgencyConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        urgencyProbabilities:
+          $ref: '#/components/schemas/UrgencyProbabilities'
+        sufficientInformationProbability:
+          type: number
+          minimum: 0
+          maximum: 1
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+        createdAt:
+          type: string
+          format: date-time
+    EditDraftRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+    Draft:
+      type: object
+      required: [id, issueId, createdBy, content, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        issueId:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ApiError:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+          example: OLLAMA_UNAVAILABLE
+        message:
+          type: string
+        retryable:
+          type: boolean

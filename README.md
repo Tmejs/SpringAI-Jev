@@ -6,6 +6,19 @@ A Java 25 portfolio API for software issues. It stores issues in PostgreSQL, use
 
 Spring AI `ChatClient` handles Ollama reply text. Jev uses its typed HTTP API directly to supply probabilities for the triage rules.
 
+## Architecture and API reference
+
+```mermaid
+flowchart LR
+    Client[User or maintainer] --> API[JWT-protected Spring MVC API]
+    API --> DB[(PostgreSQL)]
+    API --> Jev[Jev typed triage]
+    API --> SpringAI[Spring AI ChatClient]
+    SpringAI --> Ollama[Local Ollama model]
+```
+
+The [OpenAPI 3.1 contract](docs/api/openapi.yaml) lists every route, request and response schema, authentication requirement, and provider error. It is a static file that can be imported into an OpenAPI viewer; the app does not serve Swagger UI. The Jev call decides category, urgency, and whether enough information was supplied; Java applies provisional review thresholds. Ollama drafts text for a maintainer to edit and never publishes it.
+
 ## Run locally
 
 Install JDK 25, Maven 3.9+, Docker with Compose, and [Ollama](https://ollama.com/). Live triage also requires a TypeSafe AI API key.
@@ -18,7 +31,7 @@ Install JDK 25, Maven 3.9+, Docker with Compose, and [Ollama](https://ollama.com
    docker compose up -d postgres
    ```
 
-3. Start Ollama and pull the model with `ollama pull gemma3:4b`.
+3. Start Ollama (`ollama serve` in a separate terminal) and pull the model with `ollama pull gemma3:4b`. On macOS, the [official installer](https://ollama.com/download) provides Ollama.app. If its CLI link could not be created, run `/Applications/Ollama.app/Contents/Resources/ollama` with the same `serve` and `pull` arguments instead.
 4. Start the API with `mvn spring-boot:run`.
 
 Flyway creates the schema. Demo accounts are created only when their passwords are supplied. Later changes to those variables do not change existing stored passwords.
